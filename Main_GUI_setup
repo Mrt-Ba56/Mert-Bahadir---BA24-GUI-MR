@@ -1,0 +1,96 @@
+import sys
+from PyQt5.QtWidgets import QApplication, QStackedWidget, QWidget, QVBoxLayout
+from models import PulseModel, PulseFileModel, ExperimentModel
+from view import TitleScreen, ExplanationDialog, MainWindow, PulseControl, ExperimentExecutionView
+from controller import MainController, PulseControlController, ExperimentController
+
+if __name__ == "__main__":
+    app = QApplication(sys.argv)
+
+    # Erstelle das QStackedWidget für Navigation
+    stacked_widget = QStackedWidget()
+
+    # Erstelle den Titelbildschirm und füge ihn zum QStackedWidget hinzu
+    title_screen = TitleScreen(stacked_widget)
+    stacked_widget.addWidget(title_screen)  # Index 0
+
+    # Versuchserklärung
+    explanation_dialog = ExplanationDialog(stacked_widget)
+    stacked_widget.addWidget(explanation_dialog)  # Index 1
+
+
+    def create_main_gui():
+        pulse_model = PulseModel()
+        pulse_file_model = PulseFileModel()
+        experiment_model = ExperimentModel()
+
+        print(f"DEBUG: Initialisiertes PulseFileModel: {pulse_file_model}")
+
+        # Hauptfenster erstellen
+        main_window = MainWindow(None)
+
+        # Debug: Überprüfen des Typs und der Attribute von main_window
+        print(f"DEBUG: main_window Typ: {type(main_window)}")
+        print(f"DEBUG: main_window Attribute: {dir(main_window)}")
+
+        # MainController erstellen und zuweisen
+        main_controller = MainController(pulse_file_model, pulse_model, main_window)
+        main_window.controller = main_controller
+
+        # PulseControlController und View erstellen
+        pulse_control_controller = PulseControlController(pulse_model, pulse_file_model, main_window)
+        pulse_control_view = PulseControl(model=pulse_model, controller=pulse_control_controller)
+        pulse_control_controller.pulse_control_view = pulse_control_view
+
+        # Referenzen setzen
+        main_window.pulse_control_controller = pulse_control_controller
+        main_window.pulse_control_view = pulse_control_view
+
+        # Layout für Parameter-Tab
+        param_layout = main_window.param_tab_layout
+
+        # TextEditor hinzufügen
+        param_layout.addWidget(main_window.text_editor)
+
+        # ScrollArea mit PulseControl konfigurieren
+        param_widget = QWidget()
+        scroll_layout = QVBoxLayout(param_widget)
+        scroll_layout.addWidget(pulse_control_view)
+        main_window.scroll_area.setWidget(param_widget)
+
+        # ScrollArea hinzufügen
+        param_layout.addWidget(main_window.scroll_area)
+
+        # ExperimentController erstellen
+        experiment_controller = ExperimentController(
+            model=experiment_model,
+            view=None  # Temporär None
+        )
+
+        experiment_execution_view = ExperimentExecutionView(
+            controller=experiment_controller,
+            tab_widget=main_window.tab_widget,
+            main_window=main_window
+        )
+
+        experiment_controller.view = experiment_execution_view  # Rückreferenz setzen
+
+        # ExperimentExecutionView und Controller im Hauptfenster speichern
+        main_window.experiment_execution_view = experiment_execution_view
+        main_window.experiment_controller = experiment_controller
+
+        # Menü einrichten
+        main_window.setup_menu()
+
+        return main_window
+
+
+    # Haupt-GUI erstellen und zum QStackedWidget hinzufügen
+    experiment_view = create_main_gui()
+    stacked_widget.addWidget(experiment_view)  # Index 2
+
+    # Zeige den Titelbildschirm
+    stacked_widget.setCurrentIndex(0)
+    stacked_widget.show()
+    # Event-Loop starten
+    sys.exit(app.exec_())
